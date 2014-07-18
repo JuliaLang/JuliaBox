@@ -7,7 +7,7 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
-    <title>Hosted IJulia</title>
+    <title>JuliaBox - Hosted Julia</title>
 
     <!-- Bootstrap core CSS -->
     <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet">
@@ -77,7 +77,8 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="#">Hosted IJulia</a>
+          <img src="/jdock_assets/img/juliacloudlogo.png" class="navbar-brand">
+          <a class="navbar-brand" href="#">JuliaBox</a>
         </div>
         <div class="collapse navbar-collapse">
           <ul class="nav navbar-nav">
@@ -94,9 +95,9 @@
 
     
      <form class="form-signin" role="form" action="/hostlaunchipnb/">
-        <h2 class="form-signin-heading">Try IJulia!</h2>
+        <h3 class="form-signin-heading">JuliaBox - Hosted Julia</h3>
         {% if cfg["gauth"] == True %}
-            Please sign in using your Google id.<br> 
+            Please sign in using your Google ID.<br> 
         {% else %}
             Please enter a name for your IPNB session. <br> 
         {% end %}
@@ -107,19 +108,19 @@
         <label class="checkbox">
           <input type="checkbox" name="clear_old_sess" value="true"> Force new session
         </label>
-        <button class="btn btn-lg btn-primary btn-block" type="submit"  value="Launch">Launch IJulia</button>
+        <button class="btn btn-lg btn-primary btn-block" type="submit"  value="Launch">Launch JuliaBox</button>
         <h3 style="color:Red">{{ err }}</h3>    
         
         {% if cfg["gauth"] == False %}
-            <b>NOTE : </b> <br>
+            <b>NOTE : </b> <br/>
             <b>Session Names : </b> Please use alphanumeric characters only. Underscores are OK. 
         {% end %}
 
-            <br>
-            <br>
-            <b>Rejoing existing sessions : </b> By default, existing sessions with the same name (if found) are reconnected to. <br> 
+            <br/>
+            <br/>
+            <b>Rejoing existing sessions : </b> By default, existing sessions with the same name (if found) are reconnected to. <br/> 
             If "Force new" is checked, any old sessions are deleted and a new one instantiated.  
-            <br>
+            <br/>
         
         
       </form>
@@ -134,27 +135,4 @@
     <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

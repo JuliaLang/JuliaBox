@@ -7,10 +7,11 @@
 
 $$ERRMSG
 
-<table border="0" width="100%">
+<table border="0" width="100%" height="100%">
     <tr>
         <td width="50%" valign="top">
             <h2>Upload Files</h2>
+            Your work directory on this machine is &quot;/home/juser&quot;.<br/>All uploaded files would be placed here.<br/><br/>
             <form name="upload" method="POST" enctype="multipart/form-data" action="/hostipnbupl/upload">
                 <input type="file" name="file1"><br>
                 <input type="file" name="file2"><br>
@@ -22,7 +23,7 @@ $$ERRMSG
             </form>
         </td>
         <td width="50%" valign="top">
-            <iframe src="/hostipnbupl/home/juser/" frameborder="0" width="100%" height="1000"></iframe>  
+            <iframe src="/hostipnbupl/home/juser/" frameborder="0" width="100%" height="100%"></iframe>  
         </td>
     </tr>
 </table>
