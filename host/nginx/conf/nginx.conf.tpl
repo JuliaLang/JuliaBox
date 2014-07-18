@@ -18,6 +18,10 @@ http {
         location /favicon.ico {
             include    mime.types;
         }
+
+        location /jdock_assets/ {
+            include    mime.types;
+        }
         
         
 # On the host, all locations will be specified explictly, i.e, with an "="
