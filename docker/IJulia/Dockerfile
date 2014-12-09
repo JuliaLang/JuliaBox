@@ -1,7 +1,7 @@
 # Docker file for JuliaBox
-# Version:18
+# Version:19
 
-FROM tanmaykm/jboxjulia:v0.3.3_9
+FROM tanmaykm/jboxjulia:v0.3.3_10
 
 MAINTAINER Tanmay Mohapatra
 
@@ -73,9 +73,9 @@ ENV HOME /home/juser
 ENV PATH /usr/local/texlive/2014/bin/x86_64-linux:/usr/local/bin:/usr/bin:/bin:/usr/games
 WORKDIR /home/juser
 
-# 4200: http port for console
+# 3000: http port for codebox
 # 8000: http port for tornado
 # 8998: ipython port for julia
-EXPOSE  4200 8000 8998
+EXPOSE  3000 8000 8998
 
 ENTRYPOINT /usr/bin/supervisord -n -c /home/juser/.juliabox/supervisord.conf -l /home/juser/.juliabox/supervisord.log -j /home/juser/.juliabox/supervisord.pid -q /home/juser/.juliabox
