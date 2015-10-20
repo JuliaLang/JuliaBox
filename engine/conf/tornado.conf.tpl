@@ -34,7 +34,9 @@
         # Maximum number of requests in queue before rejecting new requests
         "numapilocalmax" : 5,
         # Seconds to wait before force deleting a non-responding container
-        "expire" : 1800
+        "expire" : 1800,
+        # Host folder where API containers can write logs. This is mounted as /home/juser/logs in the container.
+        "log_location" : "/jboxengine/logs/api"
     },
 
     # interactive container configuration

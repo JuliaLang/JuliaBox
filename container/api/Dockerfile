@@ -36,4 +36,7 @@ RUN /opt/julia-0.3/bin/julia  -e "try; Pkg.installed(\"JuliaWebAPI\"); catch; Pk
 RUN /opt/julia-0.4/bin/julia  -e "try; Pkg.installed(\"JuliaWebAPI\"); catch; Pkg.clone(\"https://github.com/tanmaykm/JuliaWebAPI.jl\"); end"
 RUN /opt/julia-0.5/bin/julia  -e "try; Pkg.installed(\"JuliaWebAPI\"); catch; Pkg.clone(\"https://github.com/tanmaykm/JuliaWebAPI.jl\"); end"
 
+# create a folder for storing log files, which can be mounted to a host volume during startup
+RUN mkdir -p /home/juser/logs
+
 ENTRYPOINT ["julia", "-e", "using JuliaWebAPI; using Compat; process();"]

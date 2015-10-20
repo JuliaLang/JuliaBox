@@ -24,6 +24,8 @@ class APIContainer(BaseContainer):
     CPU_LIMIT = 1024
     MEM_LIMIT = None
     EXPIRE_SECS = 0
+    VOLUMES = ['/home/juser/logs']
+    HOST_LOG_FOLDER = '/jboxengine/logs/api'
     MAX_CONTAINERS = 0
     MAX_PER_API_CONTAINERS = 0
 
@@ -44,6 +46,7 @@ class APIContainer(BaseContainer):
         APIContainer.MAX_CONTAINERS = JBoxCfg.get('api.numlocalmax')
         APIContainer.MAX_PER_API_CONTAINERS = JBoxCfg.get('api.numapilocalmax')
         APIContainer.EXPIRE_SECS = JBoxCfg.get('api.expire')
+        APIContainer.HOST_LOG_FOLDER = JBoxCfg.get('api.log_location')
 
     @staticmethod
     def unique_container_name(api_name):
@@ -80,6 +83,13 @@ class APIContainer(BaseContainer):
 
     @staticmethod
     def create_new(api_name):
+        vols = {
+            APIContainer.HOST_LOG_FOLDER: {
+                'bind': APIContainer.VOLUMES[0],
+                'ro': False
+            }
+        }
+
         container_name = APIContainer.unique_container_name(api_name)
         queue = APIQueue.get_queue(api_name)
         env = {
@@ -92,12 +102,13 @@ class APIContainer(BaseContainer):
         if image_name is None:
             image_name = APIContainer.DCKR_IMAGE
 
-        hostcfg = docker.utils.create_host_config(mem_limit=APIContainer.MEM_LIMIT)
+        hostcfg = docker.utils.create_host_config(binds=vols, mem_limit=APIContainer.MEM_LIMIT)
 
         jsonobj = APIContainer.DCKR.create_container(image_name,
                                                      detach=True,
                                                      host_config=hostcfg,
                                                      cpu_shares=APIContainer.CPU_LIMIT,
+                                                     volumes=APIContainer.VOLUMES,
                                                      environment=env,
                                                      hostname='juliabox',
                                                      name=container_name)
