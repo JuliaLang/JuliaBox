@@ -59,13 +59,17 @@ class JBoxGS(JBPluginCloud):
     @staticmethod
     def pull(bucket, local_file, metadata_only=False):
         objname = os.path.basename(local_file)
+        k = None
+        try:
+            k = JBoxGS.connect().objects().get(bucket=bucket,
+                                               object=objname).execute()
+        except HttpError as err:
+            if err._get_reason() != 'Not Found':
+                raise(err)
+            else:
+                return None
+
         if metadata_only:
-            k = None
-            try:
-                k = JBoxGS.connect().objects().get(bucket=bucket,
-                                                   object=objname).execute()
-            except:
-                pass
             return k
         else:
             req = JBoxGS.connect().objects().get_media(bucket=bucket,
@@ -75,13 +79,9 @@ class JBoxGS(JBPluginCloud):
             downloader = MediaIoBaseDownload(fh, req, chunksize=1024*1024)
             done = False
             while not done:
-                try:
-                    _, done = downloader.next_chunk()
-                except:
-                    break
+                _, done = downloader.next_chunk()
             fh.close()
-            if not done:
-                os.remove(local_file)
+            return k
 
     @staticmethod
     def delete(bucket, local_file):
