@@ -66,7 +66,7 @@ class GitHubAuthHandler(JBPluginHandler, OAuth2Mixin):
             user = yield self.get_authenticated_user(redirect_uri=self_redirect_uri, code=code)
             if not user:
                 self.rendertpl("index.tpl", cfg=JBoxCfg.nv, state=self.state(
-                    error="Could not retrieve your access token.  Please try again.",
+                    error="GitHub authentication failed due to unexpected error.  Please try again.",
                     success=""))
                 return
             user_info = yield self.get_user_info(user)
