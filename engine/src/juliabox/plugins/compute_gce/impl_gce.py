@@ -409,13 +409,19 @@ class CompGCE(JBPluginCloud):
 
     @staticmethod
     @retry_on_errors(retries=2)
-    def _increment_num_instances(num_instances):
+    def _get_cluster_size():
         conn = CompGCE._connect_gce().instanceGroupManagers()
         curr = conn.get(project=CompGCE.INSTALL_ID, zone=CompGCE._zone(),
                         instanceGroupManager=CompGCE.AUTOSCALE_GROUP).execute()['targetSize']
+        return curr
+
+    @staticmethod
+    @retry_on_errors(retries=2)
+    def _set_cluster_size(new_size):
+        conn = CompGCE._connect_gce().instanceGroupManagers()
         return conn.resize(project=CompGCE.INSTALL_ID, zone=CompGCE._zone(),
                            instanceGroupManager=CompGCE.AUTOSCALE_GROUP,
-                           size=curr + num_instances).execute()
+                           size=new_size).execute()
 
     DB_PLUGIN = None
     @staticmethod
@@ -425,26 +431,31 @@ class CompGCE(JBPluginCloud):
         return CompGCE.DB_PLUGIN
 
     @staticmethod
-    def _should_scale_up():
+    def _get_new_cluster_size(csize, inc):
         plugin = CompGCE._get_db_plugin()
         conn = plugin.conn()
         c = conn.cursor()
 
         c.execute('SELECT * FROM scale_up_time')
-        last_time = c.fetchone()[0]
+        data = c.fetchone()
+        last_time = data[0]
+        last_inc = data[1]
 
         now = int(time.time())
-        if now < last_time + CompGCE.SCALE_UP_INTERVAL:
+        within_interval = now < last_time + CompGCE.SCALE_UP_INTERVAL
+        if within_interval and last_inc >= inc:
             c.close()
-            return False
+            return csize      # Retain current size if request is within cooling
+                              # period and more instances are not required.
 
-        ret = c.execute('UPDATE scale_up_time SET scale_up_time = %d WHERE ' \
-                        'scale_up_time = %d' % (now, last_time))
+        ret = c.execute('UPDATE scale_up_time SET scale_up_time = %d, ' \
+                        'last_increment = %d WHERE ' \
+                        'scale_up_time = %d' % (now, inc, last_time))
         conn.commit()
         c.close()
         if ret == 0:
-            return False
-        return True
+            return csize      # Retain current size on race condition
+        return csize + inc - (last_inc if within_interval else 0)
 
     @staticmethod
     def _add_instance(num_instances=1):
@@ -452,9 +463,12 @@ class CompGCE(JBPluginCloud):
             # Execute policy only after a reasonable wait period to let a new machine boot up.
             # This will prevent thrashing AWS APIs and triggering AWS throttling.
             # Cooldown policy can also apply after that.
-            if CompGCE._should_scale_up():
-                if CompGCE.SCALE_UP_POLICY == 'addinstance':
-                    CompGCE._increment_num_instances(num_instances)
+            curr = CompGCE._get_cluster_size()
+            CompGCE.log_info("Current cluster size is %d", curr)
+            new_size = CompGCE._get_new_cluster_size(curr, instances)
+            if new_size != curr and CompGCE.SCALE_UP_POLICY == 'addinstance':
+                CompGCE.log_info("Setting new cluster size to %d", new_size)
+                CompGCE._set_cluster_size(new_size)
         except:
             CompGCE.log_exception("Error requesting scale up")
 
