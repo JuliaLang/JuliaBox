@@ -42,6 +42,7 @@ class CompGCE(JBPluginCloud):
 
     MIN_UPTIME = 50
     MONITORING_PLUGIN = None
+    SCALER_PLUGIN = None
 
     @staticmethod
     def configure():
@@ -225,6 +226,12 @@ class CompGCE(JBPluginCloud):
         return filtered_nodes[0]
 
     @staticmethod
+    def _get_scaler_plugin():
+        if CompGCE.SCALER_PLUGIN is None:
+            CompGCE.SCALER_PLUGIN = JBPluginCloud.jbox_get_plugin(JBPluginCloud.JBP_SCALER)
+        return CompGCE.SCALER_PLUGIN
+
+    @staticmethod
     def should_accept_session(is_leader):
         self_instance_id = CompGCE.get_instance_id()
         self_load = CompGCE.get_instance_stats(self_instance_id, 'Load')
@@ -244,9 +251,18 @@ class CompGCE(JBPluginCloud):
         avg_load = CompGCE.get_cluster_average_stats('Load', results=cluster_load)
         CompGCE.log_debug("Average load (excluding old amis): %r", avg_load)
 
-        if avg_load >= CompGCE.SCALE_UP_AT_LOAD:
-            CompGCE.log_warn("Requesting scale up as cluster average load %r > %r", avg_load, CompGCE.SCALE_UP_AT_LOAD)
-            CompGCE._add_instance()
+        scaler = CompGCE._get_scaler_plugin()
+        if scaler:
+            scaler.configure()
+            m = scaler.machines_to_add(avg_load)
+            if m > 0:
+                CompGCE.log_warn("%r has requested scale up, adding %d machines, average load is %r",
+                                 scaler.get_name(), m , avg_load)
+                CompGCE._add_instance(m)
+        else:
+            if avg_load >= CompGCE.SCALE_UP_AT_LOAD:
+                CompGCE.log_warn("Requesting scale up as cluster average load %r > %r", avg_load, CompGCE.SCALE_UP_AT_LOAD)
+                CompGCE._add_instance()
 
         if self_load >= 100:
             CompGCE.log_debug("Not accepting: fully loaded")

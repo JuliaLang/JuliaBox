@@ -76,6 +76,9 @@ class JBPluginCloud(LoggerMixin):
     JBP_MONITORING_GOOGLE = "cloud.monitoring.google"
     JBP_MONITORING_GOOGLE_V2 = "cloud.monitoring.google.v2"
 
+    JBP_SCALER = "cloud.scaler"
+    JBP_SCALER_SIMPLE_REACTIVE = "cloud.scaler.simple_reactive"
+
     __metaclass__ = JBoxPluginType
 
 
