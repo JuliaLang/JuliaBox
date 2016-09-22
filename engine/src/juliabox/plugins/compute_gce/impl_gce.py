@@ -9,6 +9,7 @@ import json
 import socket
 import time
 import threading
+import random
 
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -48,6 +49,8 @@ class CompGCE(JBPluginCloud):
     ALLOWED_EC2_VALUE_TYPES = ["Percent", "Count"]
 
     MIN_UPTIME = 50
+    ACCEPTANCE_LOAD = 50
+    NUM_ACCEPTERS = 1
 
     @staticmethod
     def configure():
@@ -57,6 +60,8 @@ class CompGCE(JBPluginCloud):
         CompGCE.INSTALL_ID = JBoxCfg.get('cloud_host.install_id', None)
         CompGCE.MIN_UPTIME = JBoxCfg.get('cloud_host.min_uptime', 50)
         CompGCE.SCALE_UP_INTERVAL = JBoxCfg.get('cloud_host.scale_up_interval', 300)
+        CompGCE.ACCEPTANCE_LOAD = JBoxCfg.get('cloud_host.acceptance_load', 50)
+        CompGCE.NUM_ACCEPTERS = JBoxCfg.get('cloud_host.num_accepters', 1)
 
     @staticmethod
     def get_install_id():
@@ -392,7 +397,7 @@ class CompGCE(JBPluginCloud):
         avg_load = CompGCE.get_cluster_average_stats('Load', results=cluster_load)
         if avg_load == None:
             return CompGCE.get_instance_id()
-        if avg_load >= 50:
+        if avg_load >= CompGCE.ACCEPTANCE_LOAD:
             # exclude machines with load >= avg_load
             filtered_nodes = [k for k, v in cluster_load.iteritems() if v < avg_load]
         else:
@@ -412,8 +417,9 @@ class CompGCE(JBPluginCloud):
             filtered_nodes = cluster_load.keys()
 
         filtered_nodes.sort()
-        CompGCE.log_info("Redirect to instance_id: %r", filtered_nodes[0])
-        return filtered_nodes[0]
+        accepter = random.choice(filtered_nodes[0 : CompGCE.NUM_ACCEPTERS])
+        CompGCE.log_info("Redirect to instance_id: %r", accepter)
+        return accepter
 
     @staticmethod
     def should_accept_session(is_leader):
@@ -464,7 +470,7 @@ class CompGCE(JBPluginCloud):
             return True
 
         filtered_nodes = []
-        if avg_load >= 50:
+        if avg_load >= CompGCE.ACCEPTANCE_LOAD:
             if self_load >= avg_load:
                 CompGCE.log_debug("Accepting: not least loaded (self load >= avg)")
                 return True
@@ -477,7 +483,7 @@ class CompGCE(JBPluginCloud):
 
         # at low load values, sorting by load will be inaccurate, sort alphabetically instead
         filtered_nodes.sort()
-        if filtered_nodes[0] == CompGCE.get_instance_id():
+        if CompGCE.get_instance_id() in filtered_nodes[0 : CompGCE.NUM_ACCEPTERS]:
             CompGCE.log_debug("Accepting: top among sorted instances (%r)", filtered_nodes)
             return True
 
