@@ -9,6 +9,7 @@ import json
 import socket
 import time
 import threading
+import random
 
 from googleapiclient.discovery import build
 from oauth2client.client import GoogleCredentials
@@ -52,6 +53,7 @@ class CompGCE(JBPluginCloud):
         CompGCE.INSTALL_ID = JBoxCfg.get('cloud_host.install_id', None)
         CompGCE.MIN_UPTIME = JBoxCfg.get('cloud_host.min_uptime', 50)
         CompGCE.SCALE_UP_INTERVAL = JBoxCfg.get('cloud_host.scale_up_interval', 300)
+        CompGCE._get_scaler_plugin().configure()
 
     @staticmethod
     def get_install_id():
@@ -222,8 +224,13 @@ class CompGCE(JBPluginCloud):
             filtered_nodes = cluster_load.keys()
 
         filtered_nodes.sort()
-        CompGCE.log_info("Redirect to instance_id: %r", filtered_nodes[0])
-        return filtered_nodes[0]
+        scaler = CompGCE._get_scaler_plugin()
+        m = 1
+        if scaler:
+            m = scaler.machines_to_add(avg_load)
+        ch = random.choice(filtered_nodes[0 : m if m != 0 else 1])
+        CompGCE.log_info("Redirect to instance_id: %r", ch)
+        return ch
 
     @staticmethod
     def _get_scaler_plugin():
@@ -252,12 +259,12 @@ class CompGCE(JBPluginCloud):
         CompGCE.log_debug("Average load (excluding old amis): %r", avg_load)
 
         scaler = CompGCE._get_scaler_plugin()
+        m = 1
         if scaler:
-            scaler.configure()
             m = scaler.machines_to_add(avg_load)
             if m > 0:
                 CompGCE.log_warn("%r has requested scale up, adding %d machines, average load is %r",
-                                 scaler.get_name(), m , avg_load)
+                                 scaler.get_name(), m, avg_load)
                 CompGCE._add_instance(m)
         else:
             if avg_load >= CompGCE.SCALE_UP_AT_LOAD:
@@ -302,7 +309,7 @@ class CompGCE(JBPluginCloud):
 
         # at low load values, sorting by load will be inaccurate, sort alphabetically instead
         filtered_nodes.sort()
-        if filtered_nodes[0] == CompGCE.get_instance_id():
+        if CompGCE.get_instance_id() in filtered_nodes[0 : m if m != 0 else 1]:
             CompGCE.log_debug("Accepting: top among sorted instances (%r)", filtered_nodes)
             return True
 
