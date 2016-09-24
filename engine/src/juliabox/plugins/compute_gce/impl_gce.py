@@ -53,7 +53,9 @@ class CompGCE(JBPluginCloud):
         CompGCE.INSTALL_ID = JBoxCfg.get('cloud_host.install_id', None)
         CompGCE.MIN_UPTIME = JBoxCfg.get('cloud_host.min_uptime', 50)
         CompGCE.SCALE_UP_INTERVAL = JBoxCfg.get('cloud_host.scale_up_interval', 300)
-        CompGCE._get_scaler_plugin().configure()
+        scaler = CompGCE._get_scaler_plugin()
+        if scaler:
+            scaler.configure()
 
     @staticmethod
     def get_install_id():
@@ -472,7 +474,7 @@ class CompGCE(JBPluginCloud):
             # Cooldown policy can also apply after that.
             curr = CompGCE._get_cluster_size()
             CompGCE.log_info("Current cluster size is %d", curr)
-            new_size = CompGCE._get_new_cluster_size(curr, instances)
+            new_size = CompGCE._get_new_cluster_size(curr, num_instances)
             if new_size != curr and CompGCE.SCALE_UP_POLICY == 'addinstance':
                 CompGCE.log_info("Setting new cluster size to %d", new_size)
                 CompGCE._set_cluster_size(new_size)
