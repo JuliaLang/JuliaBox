@@ -226,13 +226,8 @@ class CompGCE(JBPluginCloud):
             filtered_nodes = cluster_load.keys()
 
         filtered_nodes.sort()
-        scaler = CompGCE._get_scaler_plugin()
-        m = 1
-        if scaler:
-            m = scaler.machines_to_add(avg_load)
-        ch = random.choice(filtered_nodes[0 : m if m != 0 else 1])
-        CompGCE.log_info("Redirect to instance_id: %r", ch)
-        return ch
+        CompGCE.log_info("Redirect to instance_id: %r", filtered_nodes[0])
+        return filtered_nodes[0]
 
     @staticmethod
     def _get_scaler_plugin():
@@ -261,9 +256,9 @@ class CompGCE(JBPluginCloud):
         CompGCE.log_debug("Average load (excluding old amis): %r", avg_load)
 
         scaler = CompGCE._get_scaler_plugin()
-        m = 1
         if scaler:
-            m = scaler.machines_to_add(avg_load)
+            ctx = {'avg_load': avg_load, 'num_active_machines': len(cluster_load)}
+            m = scaler.machines_to_add(ctx)
             if m > 0:
                 CompGCE.log_warn("%r has requested scale up, adding %d machines, average load is %r",
                                  scaler.get_name(), m, avg_load)
@@ -311,7 +306,7 @@ class CompGCE(JBPluginCloud):
 
         # at low load values, sorting by load will be inaccurate, sort alphabetically instead
         filtered_nodes.sort()
-        if CompGCE.get_instance_id() in filtered_nodes[0 : m if m != 0 else 1]:
+        if filtered_nodes[0] == CompGCE.get_instance_id():
             CompGCE.log_debug("Accepting: top among sorted instances (%r)", filtered_nodes)
             return True
 
