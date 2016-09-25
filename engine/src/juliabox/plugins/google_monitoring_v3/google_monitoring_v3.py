@@ -28,7 +28,7 @@ class GoogleMonitoringV3(JBPluginCloud):
         c = getattr(GoogleMonitoringV3.threadlocal, 'cm_conn', None)
         if c is None:
             creds = GoogleCredentials.get_application_default()
-            GoogleMonitoringV3.threadlocal.cm_conn = c = build("cloudmonitoring", "v3",
+            GoogleMonitoringV3.threadlocal.cm_conn = c = build("monitoring", "v3",
                                                                credentials=creds).projects()
         return c
 
@@ -103,14 +103,15 @@ class GoogleMonitoringV3(JBPluginCloud):
                 raise
 
     @staticmethod
-    def publish_stats_multi(stats, instance_id, install_id,
+    def publish_stats_multi(stats, instance_id, this_id, install_id,
                             autoscale_group, zone):
         timeseries = []
-        label = {GoogleMonitoringV3.CUSTOM_METRIC_DOMAIN + 'InstanceID': instance_id,
-                 GoogleMonitoringV3.CUSTOM_METRIC_DOMAIN + 'GroupID' : autoscale_group}
+        label = {'InstanceID': instance_id, 'GroupID': autoscale_group}
         timenow = GoogleMonitoringV3._get_google_now()
+        should_cache = this_id == instance_id
         for (stat_name, stat_unit, stat_value) in stats:
-            GoogleMonitoringV3.SELF_STATS[stat_name] = stat_value
+            if should_cache:
+                GoogleMonitoringV3.SELF_STATS[stat_name] = stat_value
             GoogleMonitoringV3.log_info("CloudMonitoring %s.%s.%s=%r(%s)",
                                         install_id, instance_id, stat_name,
                                         stat_value, stat_unit)
@@ -128,25 +129,20 @@ class GoogleMonitoringV3(JBPluginCloud):
         retlist = []
         nextpage = None
         # labels = [GoogleMonitoringV3.CUSTOM_METRIC_DOMAIN + label for label in labels]
-        filter = 'metric.type = \"' + GoogleMonitoringV3.CUSTOM_METRIC_DOMAIN \
-                 + metric_name + '\"\nmetric.label.InstanceID = \"' + \
-                 instance_id +'\"\nmetric.label.GroupID = \"' + group_id + '\"' 
-        aggregation = {
-            'aggregationPeriod': '60s',
-            'perSeriesAligner': 'ALIGN_MEAN',
-        }
-        interval = {
-            'endTime': nowtime.strftime(GoogleMonitoringV3.RFC_3339_FORMAT),
-            'startTime': (nowtime - datetime.timedelta(minutes=30)).strftime(GoogleMonitoringV3.RFC_3339_FORMAT),
-        }
+        filter = 'metric.type = "' + GoogleMonitoringV3.CUSTOM_METRIC_DOMAIN \
+                 + metric_name + '"\nmetric.label.InstanceID = "' + \
+                 instance_id +'"\nmetric.label.GroupID = "' + group_id + '"'
         while True:
             start = time.time()
             resp = None
             while True:
                 try:
                     resp = ts.list(name='projects/' + project, filter=filter,
-                                   pageToken=nextpage, interval=interval,
-                                   aggregation=aggregation).execute()
+                                   interval_startTime=(nowtime - datetime.timedelta(minutes=30)).strftime(GoogleMonitoringV3.RFC_3339_FORMAT),
+                                   interval_endTime=nowtime.strftime(GoogleMonitoringV3.RFC_3339_FORMAT),
+                                   aggregation_alignmentPeriod='60s',
+                                   aggregation_perSeriesAligner='ALIGN_MEAN',
+                                   pageToken=nextpage).execute()
                     break
                 except:
                     if time.time() < start + 20:
@@ -163,9 +159,9 @@ class GoogleMonitoringV3(JBPluginCloud):
         return retlist
 
     @staticmethod
-    def get_instance_stats(instance, stat_name, current_instance_id, install_id,
+    def get_instance_stats(instance, stat_name, this_id, install_id,
                            autoscale_group):
-        if (instance == current_instance_id) and (stat_name in GoogleMonitoringV3.SELF_STATS):
+        if (instance == this_id) and (stat_name in GoogleMonitoringV3.SELF_STATS):
             GoogleMonitoringV3.log_debug("Using cached self_stats. %s=%r",
                                          stat_name, GoogleMonitoringV3.SELF_STATS[stat_name])
             return GoogleMonitoringV3.SELF_STATS[stat_name]
@@ -181,37 +177,36 @@ class GoogleMonitoringV3(JBPluginCloud):
             return res['value'].values()[0]
         return None
 
-    GET_METRIC_DIMENSIONS_TIMESPAN = "30m"
-
     @staticmethod
     def get_metric_dimensions(metric_name, install_id, autoscale_group):
         next_token = None
         dims = {}
-        tsd = GoogleMonitoringV3._connect_google_monitoring().timeseriesDescriptors()
-        nowtime = GoogleMonitoringV3._get_google_now()
-        labels=[GoogleMonitoringV3.CUSTOM_METRIC_DOMAIN + 'GroupID==' + autoscale_group]
-
+        ts = GoogleMonitoringV3._connect_google_monitoring().timeSeries()
+        nowtime = datetime.datetime.utcnow()
+        filter = 'metric.type = "' + GoogleMonitoringV3.CUSTOM_METRIC_DOMAIN \
+                 + metric_name + '"\nmetric.label.GroupID = "' + autoscale_group + '"' 
         while True:
             start = time.time()
             metrics = None
             while True:
                 try:
-                    metrics = tsd.list(pageToken=next_token, project=install_id,
-                                       metric=GoogleMonitoringV3.CUSTOM_METRIC_DOMAIN + metric_name,
-                                       youngest=nowtime, labels=labels,
-                                       timespan=GoogleMonitoringV3.GET_METRIC_DIMENSIONS_TIMESPAN).execute()
+                    metrics = ts.list(pageToken=next_token, filter=filter,
+                                      name='projects/' + install_id,
+                                      interval_startTime=(nowtime - datetime.timedelta(minutes=30)).strftime(GoogleMonitoringV3.RFC_3339_FORMAT),
+                                      interval_endTime=nowtime.strftime(GoogleMonitoringV3.RFC_3339_FORMAT),
+                                      view='HEADERS').execute()
                     break
                 except:
                     if time.time() < start + 20:
                         time.sleep(3)
                     else:
                         raise
-            if metrics.get("timeseries") is None:
+            series = metrics.get("timeSeries")
+            if series == None:
                 break
-            for m in metrics["timeseries"]:
-                for n_dim, v_dim in m["labels"].iteritems():
-                    key = n_dim.split('/')[-1]
-                    dims[key] = dims.get(key, []) + [v_dim]
+            for m in series:
+                for n_dim, v_dim in m['metric']["labels"].iteritems():
+                    dims[n_dim] = dims.get(n_dim, []) + [v_dim]
             next_token = metrics.get("nextPageToken")
             if next_token is None:
                 break
