@@ -202,7 +202,7 @@ class CompGCE(JBPluginCloud):
             cluster_load = {k: v for k, v in cluster_load.iteritems() if CompGCE.get_image_recentness(k) >= 0}
             avg_load = CompGCE.get_cluster_average_stats('Load', results=cluster_load)
             ctx = {'avg_load': avg_load, 'num_active_machines': len(cluster_load)}
-            return scaler.can_terminate(ctx)
+            return scaler.machines_to_add(ctx) < 0
 
         return True
 
